@@ -43,7 +43,7 @@ Internet
 
 ## Install (one-liner)
 
-
+bash
 curl -fsSL https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main/deploy.sh | sudo bash
 sudo tge
 
