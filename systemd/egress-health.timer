@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic egress health check
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=egress-apply.service
+
+[Install]
+WantedBy=timers.target

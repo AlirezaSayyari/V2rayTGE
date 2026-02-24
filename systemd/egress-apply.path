@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch for tun0 to appear and apply egress rules
+
+[Path]
+PathExists=/sys/class/net/tun0
+
+[Install]
+WantedBy=multi-user.target
