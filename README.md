@@ -4,7 +4,6 @@
 ![Docker](https://img.shields.io/badge/docker-ready-blue?style=for-the-badge)
 ![Network](https://img.shields.io/badge/network-egress-orange?style=for-the-badge)
 
-```markdown
 # V2rayTGE (Traffic Gateway Egress) — Production-Safe GRE → v2rayA Egress Gateway
 
 V2rayTGE is a **production-safe** installer + CLI toolkit that turns an Ubuntu server into an **Egress Gateway**.
@@ -28,7 +27,6 @@ This project is designed for real production environments:
 - `tun0` : created by v2rayA (Docker host networking)
 
 ### Traffic Flow
-```
 
 LAN (one or multiple CIDRs)
 ↓
@@ -40,7 +38,22 @@ tun0 (v2rayA)
 ↓
 Internet
 
+---
+
+
+## Install (one-liner)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main/deploy.sh | sudo bash
+sudo tge
 ````
+
+After install:
+
+* Config: `/etc/v2raytge/config.env`
+* Compose: `/etc/v2raytge/docker/docker-compose.yml`
+* CLI: `/usr/local/sbin/tge`
+* Logs: `/var/log/v2raytge/`
 
 ---
 
@@ -95,22 +108,6 @@ You must configure:
 2) Route or PBR so your LAN CIDRs are sent into the GRE tunnel
 
 V2rayTGE is **vendor-neutral** and does not assume FortiGate.
-
----
-
-## Install (one-liner)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main/deploy.sh | sudo bash
-sudo tge
-````
-
-After install:
-
-* Config: `/etc/v2raytge/config.env`
-* Compose: `/etc/v2raytge/docker/docker-compose.yml`
-* CLI: `/usr/local/sbin/tge`
-* Logs: `/var/log/v2raytge/`
 
 ---
 
