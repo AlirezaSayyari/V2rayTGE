@@ -34,14 +34,14 @@ this project was born.
 
 ## ⚡ One-Line Install
 
-```bash
+bash
 curl -fsSL https://raw.githubusercontent.com/alirezasayyari/V2rayTGE/main/deploy.sh | sudo bash
 sudo egressctl
-````
+
 
 That's it.
 
----
+
 
 **V2rayTGE** is not just another proxy script.  
 It's a **network architecture component**.
@@ -54,7 +54,7 @@ It turns a Linux server into:
 
 ## 🧩 Architecture Overview
 
-```mermaid
+mermaid
 flowchart LR
     A[LAN Clients]
     B[Edge Device<br>Router/Firewall]
@@ -69,7 +69,7 @@ flowchart LR
     D --> E
     E --> F
 
-````
+
 
 Clients LAN
 ↓
@@ -81,7 +81,7 @@ v2rayA (TUN mode)
 ↓
 Internet
 
-````
+
 
 This project handles:
 
@@ -98,19 +98,16 @@ This project handles:
 
 After install:
 
-```bash
+bash
 sudo egressctl
-```
 
 Menu:
 
-```
 1) Help & Introduction
 2) Config Egress System
 3) Activate/Deactivate
 4) Health Check
 5) Logs
-```
 
 ---
 
@@ -154,10 +151,8 @@ Create GRE tunnel to Linux server public IP.
 
 Example:
 
-```
 Linux: 10.255.255.2/30
 Router: 10.255.255.1/30
-```
 
 ### 3️⃣ Policy Route
 
@@ -175,9 +170,7 @@ The CLI wizard prints a ready-to-use summary.
 
 Open GUI:
 
-```
 http://SERVER-IP:2017
-```
 
 Then:
 
@@ -208,9 +201,7 @@ Everything:
 
 ## 📊 Health Check
 
-```
 sudo egressctl → Health Check
-```
 
 Shows:
 
