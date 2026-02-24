@@ -1,0 +1,12 @@
+[Unit]
+Description=TGE: Ensure GRE tunnel exists (idempotent, no delete)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/tge-gre-ensure
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

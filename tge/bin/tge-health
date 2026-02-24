@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ETC_DIR="/etc/v2raytge"
+CFG="$ETC_DIR/config.env"
+. "$ETC_DIR/tge-lib.sh"
+need_root
+[[ -f "$CFG" ]] || { echo "Missing $CFG"; exit 1; }
+# shellcheck disable=SC1090
+. "$CFG"
+
+echo "=== TGE Health Check ==="
+echo "- GRE IF: $GRE_IF"
+echo "- TUN IF: $TUN_IF"
+echo
+
+ok=1
+
+check() {
+  local name="$1"; shift
+  if "$@"; then
+    echo "[OK]  $name"
+  else
+    echo "[BAD] $name"
+    ok=0
+  fi
+}
+
+check "gre exists" ip link show "$GRE_IF" >/dev/null 2>&1
+check "tun0 exists" ip link show "$TUN_IF" >/dev/null 2>&1
+check "ip rule 100" ip -o rule show | grep -qE '^100:.*iif '"$GRE_IF"'.*lookup '"$V2RAY_TABLE"
+check "ip rule 110" ip -o rule show | grep -qE '^110:.*iif '"$TUN_IF"'.*lookup '"$V2RAY_TABLE"
+check "v2ray table default" ip route show table "$V2RAY_TABLE" | grep -qE '^default dev '"$TUN_IF"
+
+# MSS rule
+check "MSS clamp rule" sudo iptables-legacy -t mangle -S FORWARD | grep -qE "gre.*$GRE_IF.*$TUN_IF.*set-mss $MSS_CLAMP"
+
+# quick egress test from gateway (optional)
+if ip link show "$TUN_IF" >/dev/null 2>&1; then
+  echo
+  echo "=== Egress test (from gateway) ==="
+  curl -4 --max-time 6 -I https://example.com/ >/dev/null 2>&1 && echo "[OK]  curl https://example.com" || echo "[WARN] curl failed (check v2rayA/outbound)"
+fi
+
+echo
+if [[ "$ok" -eq 1 ]]; then
+  echo "✅ HEALTH: OK"
+  exit 0
+else
+  echo "❌ HEALTH: Issues detected"
+  exit 1
+fi

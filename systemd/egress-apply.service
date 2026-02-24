@@ -1,9 +1,0 @@
-[Unit]
-Description=Apply Egress GRE + PBR rules (safe/idempotent)
-After=network-online.target docker.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/opt/egress-v2raya/scripts/apply.sh
-RemainAfterExit=yes

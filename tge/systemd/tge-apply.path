@@ -1,8 +1,9 @@
 [Unit]
-Description=Watch for tun0 to appear and apply egress rules
+Description=TGE: Trigger apply when tun0 appears
 
 [Path]
 PathExists=/sys/class/net/tun0
+Unit=tge-apply.service
 
 [Install]
 WantedBy=multi-user.target

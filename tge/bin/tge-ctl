@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ETC_DIR="/etc/v2raytge"
+CFG="$ETC_DIR/config.env"
+LOG_DIR="/var/log/v2raytge"
+mkdir -p "$LOG_DIR"
+
+. "$ETC_DIR/tge-lib.sh"
+need_root
+
+load_cfg() {
+  if [[ ! -f "$CFG" ]]; then
+    echo "[tge-ctl] ERROR: config not found: $CFG"
+    echo "[tge-ctl] Run: sudo tge  ->  Configure Egress System"
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  . "$CFG"
+
+  GRE_IF="${GRE_IF:-gre-egress}"
+  TUN_IF="${TUN_IF:-tun0}"
+}
+
+compose_up() {
+  if [[ -f "$ETC_DIR/docker/docker-compose.yml" ]]; then
+    docker compose -f "$ETC_DIR/docker/docker-compose.yml" up -d || true
+  else
+    echo "[tge-ctl] WARN: docker-compose.yml not found at $ETC_DIR/docker/"
+  fi
+}
+
+compose_down() {
+  if [[ -f "$ETC_DIR/docker/docker-compose.yml" ]]; then
+    docker compose -f "$ETC_DIR/docker/docker-compose.yml" down || true
+  fi
+}
+
+enable_units() {
+  systemctl enable --now tge-gre.service
+  systemctl enable --now tge-apply.service
+  systemctl enable --now tge-apply.path
+  systemctl enable --now tge-apply.timer
+}
+
+disable_units() {
+  systemctl disable --now tge-apply.timer || true
+  systemctl disable --now tge-apply.path  || true
+  systemctl disable --now tge-apply.service || true
+  systemctl disable --now tge-gre.service || true
+}
+
+activate() {
+  load_cfg
+  echo "[tge-ctl] Activating..."
+
+  # Bring up v2rayA container (best effort)
+  compose_up
+
+  # Enable self-healing
+  enable_units
+
+  # Ensure GRE exists now (best effort)
+  if command -v /usr/local/sbin/tge-gre-ensure >/dev/null 2>&1; then
+    /usr/local/sbin/tge-gre-ensure || true
+  else
+    echo "[tge-ctl] WARN: tge-gre-ensure not found; systemd will still run it."
+  fi
+
+  # Ensure rules now (best effort). If tun0 isn't present yet, worker exits 0 safely.
+  /usr/local/sbin/tge-apply || true
+
+  echo "[tge-ctl] ✅ Activated."
+  echo "[tge-ctl] Tip: run 'sudo tge-health' to verify."
+}
+
+deactivate() {
+  load_cfg
+  echo "[tge-ctl] Deactivating (safe; no flush)..."
+
+  # Stop self-healing first (prevents re-adding while removing)
+  disable_units
+
+  # Remove ONLY our known rules if present (no flush)
+  # ip rules (only if exactly match existing line)
+  safe_ip_rule_del 100 "iif $GRE_IF lookup v2ray"
+  safe_ip_rule_del 110 "iif $TUN_IF lookup v2ray"
+  safe_ip_rule_del 101 "to 10.255.255.0/30 lookup main" || true
+
+  # Remove iptables rules that belong to us (best-effort)
+  if [[ -f "$CFG" ]]; then
+    # shellcheck disable=SC1090
+    . "$CFG"
+    GRE_IF="${GRE_IF:-gre-egress}"
+    TUN_IF="${TUN_IF:-tun0}"
+    MSS_CLAMP="${MSS_CLAMP:-1436}"
+    LAN_CIDRS="${LAN_CIDRS:-}"
+  fi
+
+  # MSS rule
+  safe_iptables_del_mss "$GRE_IF" "$TUN_IF" "$MSS_CLAMP" || true
+
+  # FORWARD allow rules
+  safe_iptables_del_forward "$GRE_IF" "$TUN_IF" || true
+
+  # NAT per LAN CIDR
+  if [[ -n "$LAN_CIDRS" ]]; then
+    for cidr in $(echo "$LAN_CIDRS" | tr ',' ' '); do
+      safe_iptables_del_nat "$cidr" "$TUN_IF" || true
+    done
+  fi
+
+  # Optional: stop v2rayA (comment out if you prefer leaving it running)
+  # compose_down
+
+  echo "[tge-ctl] ✅ Deactivated."
+}
+
+case "${1:-}" in
+  --activate) activate ;;
+  --deactivate) deactivate ;;
+  *) echo "Usage: tge-ctl --activate|--deactivate"; exit 2 ;;
+esac

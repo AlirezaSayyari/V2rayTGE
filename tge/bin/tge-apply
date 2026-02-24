@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ETC_DIR="/etc/v2raytge"
+CFG="$ETC_DIR/config.env"
+LOG_DIR="/var/log/v2raytge"
+mkdir -p "$LOG_DIR"
+
+# Load shared helpers (installed to /etc/v2raytge/tge-lib.sh by deploy.sh)
+. "$ETC_DIR/tge-lib.sh"
+
+need_root
+
+if [[ ! -f "$CFG" ]]; then
+  echo "[tge-apply] ERROR: config not found: $CFG"
+  echo "[tge-apply] Run: sudo tge  ->  Config Egress System"
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+. "$CFG"
+
+log(){ echo "[tge-apply] $*"; }
+
+# Defaults (if config doesn't contain them for any reason)
+GRE_IF="${GRE_IF:-gre-egress}"
+TUN_IF="${TUN_IF:-tun0}"
+V2RAY_TABLE="${V2RAY_TABLE:-v2ray}"
+V2RAY_TABLE_ID="${V2RAY_TABLE_ID:-100}"
+MSS_CLAMP="${MSS_CLAMP:-1436}"
+GRE_MTU="${GRE_MTU:-1476}"
+
+# 0) Quick wait: avoid boot flaps; but never hard-fail (no start-limit storms)
+for _ in $(seq 1 30); do
+  ip link show "$GRE_IF" >/dev/null 2>&1 || { sleep 1; continue; }
+  ip link show "$TUN_IF" >/dev/null 2>&1 || { sleep 1; continue; }
+  break
+done
+
+if ! ip link show "$GRE_IF" >/dev/null 2>&1; then
+  log "WARN: $GRE_IF missing; exit 0 (no change)."
+  exit 0
+fi
+
+if ! ip link show "$TUN_IF" >/dev/null 2>&1; then
+  log "WARN: $TUN_IF missing (v2rayA not ready); exit 0 (no change)."
+  exit 0
+fi
+
+# 1) sysctl (safe re-apply)
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
+sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null
+sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null
+sysctl -w "net.ipv4.conf.${GRE_IF}.rp_filter=0" >/dev/null || true
+sysctl -w "net.ipv4.conf.${TUN_IF}.rp_filter=0"  >/dev/null || true
+
+# 2) rt_tables ensure (append-only if missing)
+ensure_rt_table "$V2RAY_TABLE_ID" "$V2RAY_TABLE"
+
+# 3) Routes in v2ray table (safe replace; DOES NOT touch main default route)
+ip route replace default dev "$TUN_IF" table "$V2RAY_TABLE"
+
+# LAN CIDRs (comma separated)
+if [[ -n "${LAN_CIDRS:-}" ]]; then
+  for cidr in $(echo "$LAN_CIDRS" | tr ',' ' '); do
+    ip route replace "$cidr" dev "$GRE_IF" table "$V2RAY_TABLE"
+  done
+else
+  log "WARN: LAN_CIDRS empty; routing table may be incomplete."
+fi
+
+# 4) Policy rules: ensure our prefs exist; do not modify if pref exists but differs
+ensure_rule_pref 100 "iif ${GRE_IF} .*lookup ${V2RAY_TABLE}" \
+  ip rule add pref 100 iif "$GRE_IF" lookup "$V2RAY_TABLE"
+
+# Optional stability helper for GRE subnet in main (ONLY ensure if missing)
+# If you want to make this dynamic later, you can derive it from GRE_TUN_IP.
+ensure_rule_pref 101 "to 10\.255\.255\.0/30 .*lookup main" \
+  ip rule add pref 101 to 10.255.255.0/30 lookup main
+
+ensure_rule_pref 110 "iif ${TUN_IF} .*lookup ${V2RAY_TABLE}" \
+  ip rule add pref 110 iif "$TUN_IF" lookup "$V2RAY_TABLE"
+
+ip route flush cache || true
+
+# 5) iptables-legacy ensure-only (NO flush, NO policy change)
+
+# NAT: MASQUERADE each LAN CIDR out of tun0
+if [[ -n "${LAN_CIDRS:-}" ]]; then
+  for cidr in $(echo "$LAN_CIDRS" | tr ',' ' '); do
+    iptables_legacy_ensure nat POSTROUTING "-s $cidr -o $TUN_IF -j MASQUERADE"
+  done
+fi
+
+# FORWARD allow gre->tun and return established
+iptables_legacy_ensure filter FORWARD "-i $GRE_IF -o $TUN_IF -j ACCEPT"
+iptables_legacy_ensure filter FORWARD "-i $TUN_IF -o $GRE_IF -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
+
+# MSS Clamp critical fix: insert as FIRST rule if missing (GRE->tun0)
+iptables_legacy_ensure_mangle_insert_first "$GRE_IF" "$TUN_IF" "$MSS_CLAMP"
+
+# Keep generic clamps (ensure only)
+iptables_legacy_ensure mangle FORWARD "-o $TUN_IF -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu"
+iptables_legacy_ensure mangle FORWARD "-o $GRE_IF -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu"
+
+log "OK: ensured."

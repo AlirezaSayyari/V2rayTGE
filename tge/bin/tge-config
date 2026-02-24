@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ETC_DIR="/etc/v2raytge"
+CFG="$ETC_DIR/config.env"
+mkdir -p "$ETC_DIR"
+
+. "$ETC_DIR/tge-lib.sh"
+
+need_root
+
+echo "=== V2rayTGE Config Wizard ==="
+
+# 4.1 NIC selection
+guess_nic="$(guess_primary_nic)"
+echo "Detected primary NIC: $guess_nic"
+read -r -p "Confirm primary NIC for server (local GRE source) [${guess_nic}]: " nic
+nic="${nic:-$guess_nic}"
+validate_iface_exists "$nic"
+
+local_ip="$(iface_ipv4 "$nic")"
+echo "Local IPv4 on $nic: $local_ip"
+read -r -p "Confirm local GRE source IP [${local_ip}]: " gre_local_ip
+gre_local_ip="${gre_local_ip:-$local_ip}"
+validate_ipv4 "$gre_local_ip"
+
+# 4.2 remote GRE IP
+read -r -p "Enter GRE remote IP (edge device public/private IP): " gre_remote_ip
+validate_ipv4 "$gre_remote_ip"
+
+# 4.3 GRE tunnel IP (e.g. 10.255.255.2/30)
+read -r -p "Enter GRE tunnel IP/CIDR for THIS server (e.g. 10.255.255.2/30): " gre_tun_ip
+validate_cidr "$gre_tun_ip"
+
+# GRE MTU
+read -r -p "Enter GRE MTU [1476]: " gre_mtu
+gre_mtu="${gre_mtu:-1476}"
+validate_int_range "$gre_mtu" 1200 9000
+
+# 4.4 LAN CIDRs (multiple)
+echo "Enter LAN CIDRs behind edge device (multiple allowed). Example: 192.168.0.0/16"
+echo "Type 'done' when finished."
+lan_list=()
+while true; do
+  read -r -p "LAN CIDR: " c
+  [[ "$c" == "done" ]] && break
+  validate_cidr "$c"
+  lan_list+=("$c")
+done
+
+if [[ "${#lan_list[@]}" -eq 0 ]]; then
+  echo "ERROR: at least one LAN CIDR is required."
+  exit 1
+fi
+
+validate_no_overlap "${lan_list[@]}"
+
+# 4.6 MSS clamp
+echo "MSS Clamp recommended: (GRE_MTU - 40). Example: 1476-40=1436"
+read -r -p "Enter MSS clamp value [1436]: " mss
+mss="${mss:-1436}"
+validate_int_range "$mss" 536 1460
+
+# v2rayA UI port
+read -r -p "v2rayA GUI port [2017]: " v2raya_port
+v2raya_port="${v2raya_port:-2017}"
+validate_int_range "$v2raya_port" 1 65535
+
+# Save config
+cat > "$CFG" <<EOF
+# V2rayTGE configuration
+PRIMARY_NIC="$nic"
+GRE_IF="gre-egress"
+GRE_LOCAL_IP="$gre_local_ip"
+GRE_REMOTE_IP="$gre_remote_ip"
+GRE_TUN_IP="$gre_tun_ip"
+GRE_MTU="$gre_mtu"
+LAN_CIDRS="$(join_by_comma "${lan_list[@]}")"
+MSS_CLAMP="$mss"
+V2RAY_TABLE="v2ray"
+V2RAY_TABLE_ID="100"
+TUN_IF="tun0"
+V2RAYA_GUI_PORT="$v2raya_port"
+EOF
+
+chmod 600 "$CFG"
+echo
+echo "✅ Saved: $CFG"
+echo
+
+# Print edge-device instructions
+echo "=== Edge Device (Remote) Requirements ==="
+echo "- Create GRE tunnel:"
+echo "  Local IP (edge):    <edge device IP>"
+echo "  Remote IP (server): $gre_local_ip"
+echo "  Tunnel endpoints:   server=$gre_tun_ip  <-> edge=<choose complementary IP in same /30>"
+echo "  MTU:                $gre_mtu"
+echo
+echo "- Policy Based Routing / Static route:"
+echo "  Send LAN CIDRs via GRE tunnel interface:"
+for c in "${lan_list[@]}"; do echo "   - $c"; done
+echo
+echo "=== v2rayA GUI ==="
+echo "Open: http://$gre_local_ip:$v2raya_port  (or server main IP)"
+echo "Configure outbound and enable."
+echo
+
+# 4.7 tun0 check
+if ! ip link show tun0 >/dev/null 2>&1; then
+  echo "NOTE: tun0 is not present yet. Apply will run automatically when tun0 appears (systemd path+timer)."
+  echo "You can also run: sudo tge (Activate) after v2rayA is configured."
+else
+  echo "tun0 is present. You can Activate now."
+fi
+
+# 4.9 ask activate
+read -r -p "Do you want to Activate now? [y/N]: " ans
+if [[ "$ans" =~ ^[Yy]$ ]]; then
+  /usr/local/sbin/tge-apply --activate
+  /usr/local/sbin/tge-health || true
+fi

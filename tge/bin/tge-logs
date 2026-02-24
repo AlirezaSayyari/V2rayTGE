@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+need_root() { [[ "${EUID:-$(id -u)}" -eq 0 ]] || { echo "sudo required"; exit 1; }; }
+need_root
+
+echo "=== Recent logs ==="
+echo "--- systemd (tge-gre) ---"
+journalctl -u tge-gre.service -b --no-pager -n 80 || true
+echo
+echo "--- systemd (tge-apply) ---"
+journalctl -u tge-apply.service -b --no-pager -n 120 || true
+echo
+echo "--- docker (v2rayA) ---"
+docker ps | egrep -i 'v2ray|v2raya' || true

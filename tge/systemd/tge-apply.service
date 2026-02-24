@@ -1,0 +1,14 @@
+[Unit]
+Description=TGE: Apply Egress policy routing + iptables (safe ensure, no flush)
+After=network-online.target docker.service tge-gre.service
+Wants=network-online.target docker.service tge-gre.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/local/sbin/tge-apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

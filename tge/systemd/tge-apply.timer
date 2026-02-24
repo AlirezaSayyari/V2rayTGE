@@ -1,0 +1,11 @@
+[Unit]
+Description=TGE: Periodic safe ensure (failsafe)
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=60s
+AccuracySec=15s
+Unit=tge-apply.service
+
+[Install]
+WantedBy=timers.target

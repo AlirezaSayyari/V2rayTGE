@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ETC_DIR="/etc/v2raytge"
+CFG="$ETC_DIR/config.env"
+LOG_DIR="/var/log/v2raytge"
+
+mkdir -p "$ETC_DIR" "$LOG_DIR"
+
+menu() {
+  clear
+  echo "========================================"
+  echo " V2rayTGE - Traffic Gateway Egress (CLI)"
+  echo "========================================"
+  echo "1) Help & Introduction"
+  echo "2) Config Egress System (Wizard)"
+  echo "3) Activate Egress System"
+  echo "4) Deactivate Egress System"
+  echo "5) Health Check"
+  echo "6) Log"
+  echo "0) Exit"
+  echo "----------------------------------------"
+  echo -n "Select: "
+}
+
+help_intro() {
+  clear
+  cat <<'EOF'
+V2rayTGE چیست؟
+- یک Egress Gateway امن و Production-safe برای خروج ترافیک LAN به اینترنت از طریق v2rayA (tun0).
+- مسیر: LAN -> Edge Device (Forti/Router/...) -> GRE -> EgressGW -> policy routing (table v2ray) -> tun0 -> Internet
+
+ویژگی‌ها
+- بدون flush iptables / ip rules
+- بدون تغییر default route سیستم
+- idempotent (هر بار اجرا شود آسیبی نمی‌زند)
+- self-heal با systemd: بعد reboot، بعد docker restart، بعد network restart
+
+پیش‌نیازها
+- Ubuntu Server
+- Docker + v2rayA با network=host (tun0 ساخته می‌شود)
+- یک GRE tunnel از سمت Edge device به این سرور
+- روی Edge device باید PBR/route طوری باشد که LAN به GRE فرستاده شود
+
+GUI v2rayA
+- بعد از نصب/اجرای docker compose، GUI روی پورت 2017 در دسترس است:
+  http://<EgressGW-IP>:2017
+- داخل v2rayA یک outbound config (VLESS/VMess/...) تنظیم کنید و mode را فعال کنید تا tun0 آماده شود.
+
+نکته MTU/MSS (خیلی مهم)
+- ping ممکن است کار کند ولی HTTPS (TLS) گیر کند => PMTU blackhole
+- ما MSS clamp را روی مسیر GRE->tun0 اعمال می‌کنیم (مثلاً 1436 برای GRE MTU=1476)
+
+EOF
+  echo
+  echo "Press Enter to return..."
+  read -r
+}
+
+require_root() {
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    echo "Run as root: sudo tge"
+    exit 1
+  fi
+}
+
+activate() {
+  require_root
+  /usr/local/sbin/tge-ctl --activate
+  echo "Press Enter..."
+  read -r
+}
+
+deactivate() {
+  require_root
+  /usr/local/sbin/tge-ctl --deactivate
+  echo "Press Enter..."
+  read -r
+}
+
+config_wizard() {
+  require_root
+  /usr/local/sbin/tge-config
+  echo "Press Enter..."
+  read -r
+}
+
+health() {
+  require_root
+  /usr/local/sbin/tge-health
+  echo "Press Enter..."
+  read -r
+}
+
+logs() {
+  require_root
+  /usr/local/sbin/tge-logs
+  echo "Press Enter..."
+  read -r
+}
+
+while true; do
+  menu
+  read -r choice
+  case "$choice" in
+    1) help_intro ;;
+    2) config_wizard ;;
+    3) activate ;;
+    4) deactivate ;;
+    5) health ;;
+    6) logs ;;
+    0) exit 0 ;;
+    *) echo "Invalid. Enter..." ; read -r ;;
+  esac
+done

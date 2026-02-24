@@ -3,13 +3,12 @@ services:
     image: mzz2017/v2raya:latest
     container_name: v2raya
     restart: always
-    privileged: true
     network_mode: host
+    privileged: true
     environment:
       - IPTABLES_MODE=legacy
       - V2RAYA_NFTABLES_SUPPORT=off
-      - V2RAYA_LOG_FILE=/tmp/v2raya.log
     volumes:
+      - /etc/v2raya:/etc/v2raya
       - /lib/modules:/lib/modules:ro
       - /etc/resolv.conf:/etc/resolv.conf
-      - /etc/v2raya:/etc/v2raya
