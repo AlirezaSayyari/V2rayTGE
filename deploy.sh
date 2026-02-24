@@ -6,9 +6,15 @@ REPO_RAW="https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main"
 INSTALL_DIR="/opt/tge"
 BIN_DIR="/usr/local/bin"
 
-FAST_INSTALL="${FAST_INSTALL:-0}"          # 1 = stop apt background services temporarily (opt-in)
+FAST_INSTALL="${FAST_INSTALL:-0}"                 # 1=stop apt background services temporarily (opt-in)
 APT_LOCK_TIMEOUT_SEC="${APT_LOCK_TIMEOUT_SEC:-1800}"
 APT_LOCK_POLL_SEC="${APT_LOCK_POLL_SEC:-10}"
+
+# Docker install policy:
+#  - auto (default): try ubuntu docker.io, if fails -> fallback to get.docker.com
+#  - ubuntu: only ubuntu repo docker.io
+#  - getdocker: only get.docker.com
+DOCKER_INSTALL_MODE="${DOCKER_INSTALL_MODE:-auto}"
 
 log(){ echo -e "\e[32m[deploy]\e[0m $*"; }
 warn(){ echo -e "\e[33m[deploy][WARN]\e[0m $*"; }
@@ -56,7 +62,7 @@ wait_for_apt_lock(){
     elapsed=$((now - start))
     if (( elapsed >= APT_LOCK_TIMEOUT_SEC )); then
       err "Timed out waiting for apt/dpkg lock after ${elapsed}s."
-      err "Try again later, or opt-in FAST_INSTALL=1, or increase APT_LOCK_TIMEOUT_SEC."
+      err "Try again later, or set FAST_INSTALL=1, or increase APT_LOCK_TIMEOUT_SEC."
       show_lock_holders
       exit 50
     fi
@@ -66,7 +72,7 @@ wait_for_apt_lock(){
 }
 
 # -----------------------------
-# FAST MODE (opt-in, still safe)
+# FAST MODE (opt-in)
 # -----------------------------
 stop_apt_background_services(){
   [[ "$FAST_INSTALL" == "1" ]] || return 0
@@ -88,7 +94,7 @@ start_apt_background_services(){
 }
 
 # -----------------------------
-# APT helpers (safe, no tricks)
+# APT helpers
 # -----------------------------
 apt_update(){
   wait_for_apt_lock
@@ -101,46 +107,76 @@ apt_install(){
 }
 
 # -----------------------------
-# Docker strategy (avoid conflicts)
+# Docker install strategies
 # -----------------------------
+docker_ok(){
+  have_cmd docker || return 1
+  docker version >/dev/null 2>&1 || return 1
+  return 0
+}
+
+install_docker_ubuntu(){
+  warn "Trying Docker via Ubuntu packages (docker.io)..."
+  apt_install docker.io || return 1
+  systemctl enable --now docker >/dev/null 2>&1 || true
+  docker_ok
+}
+
+install_docker_getdocker(){
+  warn "Trying Docker via get.docker.com (Docker CE)..."
+  # We do not purge/remove anything. This is for fresh servers or where ubuntu install failed.
+  curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
+  sh /tmp/install-docker.sh --dry-run >/dev/null 2>&1 || true
+  sh /tmp/install-docker.sh
+  systemctl enable --now docker >/dev/null 2>&1 || true
+  docker_ok
+}
+
 ensure_docker(){
-  if have_cmd docker; then
-    log "Docker already present. Skipping docker package installation (avoids containerd conflicts)."
-    systemctl enable --now docker >/dev/null 2>&1 || true
+  if docker_ok; then
+    log "Docker is already installed and working. Skipping Docker installation."
     return 0
   fi
 
-  warn "Docker not found. Will try to install Ubuntu docker.io (best-effort)."
-  # If this fails due to local repo conflicts, we do NOT break; we just warn.
-  if apt_install docker.io; then
-    systemctl enable --now docker >/dev/null 2>&1 || true
-    log "Docker installed (docker.io)."
-    return 0
-  else
-    warn "Docker installation failed (possibly containerd/containerd.io conflict)."
-    warn "We will continue installing tge, but tge requires Docker to run v2rayA."
-    return 1
-  fi
+  case "$DOCKER_INSTALL_MODE" in
+    ubuntu)
+      install_docker_ubuntu || return 1
+      ;;
+    getdocker)
+      install_docker_getdocker || return 1
+      ;;
+    auto)
+      if install_docker_ubuntu; then
+        return 0
+      fi
+      warn "Ubuntu docker.io install failed (often containerd conflicts). Falling back to get.docker.com..."
+      install_docker_getdocker || return 1
+      ;;
+    *)
+      err "Unknown DOCKER_INSTALL_MODE=$DOCKER_INSTALL_MODE (use: auto|ubuntu|getdocker)"
+      return 1
+      ;;
+  esac
 }
 
 ensure_compose(){
-  if have_cmd docker && docker compose version >/dev/null 2>&1; then
+  if docker_ok && docker compose version >/dev/null 2>&1; then
     log "docker compose is available."
     return 0
   fi
 
-  warn "docker compose plugin not detected. Trying to install docker-compose-plugin (best-effort)."
+  warn "docker compose not detected. Trying to install docker-compose-plugin (best-effort)."
   apt_install docker-compose-plugin >/dev/null 2>&1 || true
 
-  if have_cmd docker && docker compose version >/dev/null 2>&1; then
+  if docker_ok && docker compose version >/dev/null 2>&1; then
     log "docker compose plugin installed."
   else
-    warn "docker compose plugin still not available. (Not fatal for install.)"
+    warn "docker compose still not available. (Not fatal for deploy.)"
   fi
 }
 
 # -----------------------------
-# Install repo files (minimal)
+# Install our files (always)
 # -----------------------------
 install_files(){
   log "Installing V2rayTGE files..."
@@ -166,18 +202,17 @@ post_notes(){
 Run:
   sudo tge
 
-Notes:
-- If you hit apt/dpkg locks, deploy waits safely (no kill, no lock deletion).
-- If Docker install conflicts (containerd vs containerd.io), deploy will NOT force changes.
-  Install/repair Docker manually, then rerun deploy.
-
-Optional:
-  FAST_INSTALL=1      → stops apt background services temporarily (opt-in)
-  APT_LOCK_TIMEOUT_SEC=5400  → longer lock wait
+Docker install behavior:
+- If Docker exists & works → deploy will NOT touch Docker.
+- If Docker is missing:
+    DOCKER_INSTALL_MODE=auto    → try Ubuntu docker.io then fallback to get.docker.com
+    DOCKER_INSTALL_MODE=ubuntu  → only Ubuntu docker.io
+    DOCKER_INSTALL_MODE=getdocker → only get.docker.com
 
 Examples:
   curl -fsSL $REPO_RAW/deploy.sh | sudo bash
   curl -fsSL $REPO_RAW/deploy.sh | sudo FAST_INSTALL=1 bash
+  curl -fsSL $REPO_RAW/deploy.sh | sudo DOCKER_INSTALL_MODE=getdocker bash
 
 EOF
 }
@@ -188,16 +223,17 @@ main(){
   stop_apt_background_services
 
   apt_update
-
-  # Core deps that never cause Docker conflicts
   log "Installing base dependencies..."
   apt_install ca-certificates curl jq iproute2 iptables lsof >/dev/null
 
-  # Docker is optional install (skip if exists)
-  ensure_docker || true
-  ensure_compose || true
+  # Docker may be needed for v2rayA; try to ensure it.
+  if ensure_docker; then
+    ensure_compose || true
+  else
+    warn "Docker is not available. You can install Docker manually then rerun deploy."
+  fi
 
-  # Always install our files (even if docker deps failed)
+  # Always install tge CLI
   install_files
 
   start_apt_background_services
