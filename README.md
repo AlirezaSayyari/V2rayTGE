@@ -4,6 +4,7 @@
 ![Docker](https://img.shields.io/badge/docker-ready-blue?style=for-the-badge)
 ![Network](https://img.shields.io/badge/network-egress-orange?style=for-the-badge)
 
+```markdown
 # V2rayTGE (Traffic Gateway Egress) — Production-Safe GRE → v2rayA Egress Gateway
 
 V2rayTGE is a **production-safe** installer + CLI toolkit that turns an Ubuntu server into an **Egress Gateway**.
@@ -27,7 +28,7 @@ This project is designed for real production environments:
 - `tun0` : created by v2rayA (Docker host networking)
 
 ### Traffic Flow
-
+```
 
 LAN (one or multiple CIDRs)
 ↓
@@ -39,21 +40,7 @@ tun0 (v2rayA)
 ↓
 Internet
 
----
-
-## Install (one-liner)
-
-bash
-curl -fsSL https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main/deploy.sh | sudo bash
-sudo tge
-
-
-After install:
-
-* Config: `/etc/v2raytge/config.env`
-* Compose: `/etc/v2raytge/docker/docker-compose.yml`
-* CLI: `/usr/local/sbin/tge`
-* Logs: `/var/log/v2raytge/`
+````
 
 ---
 
@@ -111,13 +98,29 @@ V2rayTGE is **vendor-neutral** and does not assume FortiGate.
 
 ---
 
+## Install (one-liner)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AlirezaSayyari/V2rayTGE/main/deploy.sh | sudo bash
+sudo tge
+````
+
+After install:
+
+* Config: `/etc/v2raytge/config.env`
+* Compose: `/etc/v2raytge/docker/docker-compose.yml`
+* CLI: `/usr/local/sbin/tge`
+* Logs: `/var/log/v2raytge/`
+
+---
+
 ## CLI Dashboard
 
 Run:
 
-
+```bash
 sudo tge
-
+```
 
 Menu:
 
@@ -158,9 +161,9 @@ v2rayA runs in Docker with host networking and creates `tun0` on the host.
 
 Default GUI:
 
-
+```
 http://<EgressGW-IP>:2017
-
+```
 
 In v2rayA:
 
@@ -176,9 +179,9 @@ In v2rayA:
 
 From CLI menu, or:
 
-
+```bash
 sudo tge-apply --activate
-
+```
 
 Activate does:
 
@@ -188,9 +191,9 @@ Activate does:
 
 ### Deactivate
 
-
+```bash
 sudo tge-apply --deactivate
-
+```
 
 Deactivate is safe:
 
@@ -222,9 +225,9 @@ So it survives:
 
 ## Health Check
 
-
+```bash
 sudo tge-health
-
+```
 
 Checks:
 
@@ -245,29 +248,29 @@ This is usually PMTU/MSS.
 
 Check MSS rule:
 
-
+```bash
 sudo iptables-legacy -t mangle -S FORWARD | grep 'set-mss'
-
+```
 
 You should see something like:
 
-
+```
 -A FORWARD -i gre-egress -o tun0 ... -j TCPMSS --set-mss 1436
-
+```
 
 ### B) Missing policy rules (100/110)
 
-
+```bash
 ip -o rule show | egrep '^(100|101|110):'
 sudo systemctl restart tge-apply.service
-
+```
 
 ### C) GRE tunnel missing
 
-
+```bash
 sudo systemctl status tge-gre.service --no-pager -l
 ip -d tunnel show gre-egress
-
+```
 
 ---
 
@@ -286,23 +289,21 @@ V2rayTGE avoids destructive operations by design:
 
 1. Deactivate:
 
-
+```bash
 sudo tge-apply --deactivate
-
+```
 
 2. Disable units:
 
-
+```bash
 sudo systemctl disable --now tge-apply.timer tge-apply.path tge-apply.service tge-gre.service
-
+```
 
 3. Remove files:
 
-
+```bash
 sudo rm -rf /etc/v2raytge /opt/v2raytge /var/log/v2raytge
 sudo rm -f /usr/local/sbin/tge /usr/local/sbin/tge-*
 sudo rm -f /etc/systemd/system/tge-*.service /etc/systemd/system/tge-*.timer /etc/systemd/system/tge-*.path
 sudo systemctl daemon-reload
-
-
----
+```
