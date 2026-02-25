@@ -186,6 +186,8 @@ install_files(){
   mkdir -p /opt/tge/bin
   mkdir -p /usr/local/sbin
   mkdir -p /opt/v2raytge
+  mkdir -p /opt/tge/systemd
+  mkdir -p /etc/systemd/system
 
   # Download full set
   curl -fsSL "$REPO_RAW/tge/bin/tge"        -o /opt/tge/bin/tge
@@ -196,9 +198,13 @@ install_files(){
   curl -fsSL "$REPO_RAW/tge/bin/tge-gre-ensure" -o /opt/tge/bin/tge-gre-ensure
   curl -fsSL "$REPO_RAW/tge/bin/tge-health"     -o /opt/tge/bin/tge-health
   curl -fsSL "$REPO_RAW/tge/bin/tge-logs"       -o /opt/tge/bin/tge-logs
+  curl -fsSL "$REPO_RAW/tge/systemd/tge-gre.service"   -o /opt/tge/systemd/tge-gre.service
+  curl -fsSL "$REPO_RAW/tge/systemd/tge-apply.service" -o /opt/tge/systemd/tge-apply.service
+  curl -fsSL "$REPO_RAW/tge/systemd/tge-apply.path"    -o /opt/tge/systemd/tge-apply.path
+  curl -fsSL "$REPO_RAW/tge/systemd/tge-apply.timer"   -o /opt/tge/systemd/tge-apply.timer
 
   # Normalize line endings defensively in case files were committed with CRLF.
-  sed -i 's/\r$//' /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-lib.sh /opt/tge/bin/tge-ctl /opt/tge/bin/tge-gre-ensure /opt/tge/bin/tge-health /opt/tge/bin/tge-logs
+  sed -i 's/\r$//' /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-lib.sh /opt/tge/bin/tge-ctl /opt/tge/bin/tge-gre-ensure /opt/tge/bin/tge-health /opt/tge/bin/tge-logs /opt/tge/systemd/tge-gre.service /opt/tge/systemd/tge-apply.service /opt/tge/systemd/tge-apply.path /opt/tge/systemd/tge-apply.timer
 
   chmod +x /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-ctl /opt/tge/bin/tge-gre-ensure /opt/tge/bin/tge-health /opt/tge/bin/tge-logs
 
@@ -211,6 +217,11 @@ install_files(){
   install -m 0755 /opt/tge/bin/tge-health     /usr/local/sbin/tge-health
   install -m 0755 /opt/tge/bin/tge-logs       /usr/local/sbin/tge-logs
   install -m 0644 /opt/tge/bin/tge-lib.sh /opt/v2raytge/tge-lib.sh
+  install -m 0644 /opt/tge/systemd/tge-gre.service   /etc/systemd/system/tge-gre.service
+  install -m 0644 /opt/tge/systemd/tge-apply.service /etc/systemd/system/tge-apply.service
+  install -m 0644 /opt/tge/systemd/tge-apply.path    /etc/systemd/system/tge-apply.path
+  install -m 0644 /opt/tge/systemd/tge-apply.timer   /etc/systemd/system/tge-apply.timer
+  systemctl daemon-reload
 
   log "Installed:"
   log "  /usr/local/bin/tge"
@@ -220,6 +231,10 @@ install_files(){
   log "  /usr/local/sbin/tge-gre-ensure"
   log "  /usr/local/sbin/tge-health"
   log "  /usr/local/sbin/tge-logs"
+  log "  /etc/systemd/system/tge-gre.service"
+  log "  /etc/systemd/system/tge-apply.service"
+  log "  /etc/systemd/system/tge-apply.path"
+  log "  /etc/systemd/system/tge-apply.timer"
   log "  /opt/v2raytge/tge-lib.sh"
 }
 
