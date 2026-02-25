@@ -39,10 +39,12 @@ validate_int_range "$gre_mtu" 1200 9000
 
 # 4.4 LAN CIDRs (multiple)
 echo "Enter LAN CIDRs behind edge device (multiple allowed). Example: 192.168.0.0/16"
-echo "Type 'done' when finished."
+echo "Type 'done' when finished. Empty input is ignored."
 lan_list=()
 while true; do
-  read -r -p "LAN CIDR: " c
+  read -r -p "LAN CIDR (or 'done'): " c
+  c="$(echo "$c" | xargs)"
+  [[ -z "$c" ]] && continue
   [[ "$c" == "done" ]] && break
   validate_cidr "$c"
   lan_list+=("$c")
