@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ETC_DIR="/etc/v2raytge"
+ETC_DIR="/opt/v2raytge"
 CFG="$ETC_DIR/config.env"
 LOG_DIR="/var/log/v2raytge"
 mkdir -p "$LOG_DIR"
 
-# Load shared helpers (installed to /etc/v2raytge/tge-lib.sh by deploy.sh)
+# Load shared helpers (installed to /opt/v2raytge/tge-lib.sh by deploy.sh)
 . "$ETC_DIR/tge-lib.sh"
 
 need_root

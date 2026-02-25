@@ -50,8 +50,8 @@ sudo tge
 
 After install:
 
-* Config: `/etc/v2raytge/config.env`
-* Compose: `/etc/v2raytge/docker/docker-compose.yml`
+* Config: `/opt/v2raytge/config.env`
+* Compose: `/opt/v2raytge/docker/docker-compose.yml`
 * CLI: `/usr/local/sbin/tge`
 * Logs: `/var/log/v2raytge/`
 
@@ -143,7 +143,7 @@ The wizard asks you step-by-step:
 
 At the end it:
 
-* saves config to `/etc/v2raytge/config.env`
+* saves config to `/opt/v2raytge/config.env`
 * prints the **edge device** tunnel + routing requirements
 * checks whether `tun0` exists:
 
@@ -299,7 +299,7 @@ sudo systemctl disable --now tge-apply.timer tge-apply.path tge-apply.service tg
 3. Remove files:
 
 ```bash
-sudo rm -rf /etc/v2raytge /opt/v2raytge /var/log/v2raytge
+sudo rm -rf /opt/v2raytge /var/log/v2raytge
 sudo rm -f /usr/local/sbin/tge /usr/local/sbin/tge-*
 sudo rm -f /etc/systemd/system/tge-*.service /etc/systemd/system/tge-*.timer /etc/systemd/system/tge-*.path
 sudo systemctl daemon-reload

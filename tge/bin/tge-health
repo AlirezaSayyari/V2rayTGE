@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ETC_DIR="/etc/v2raytge"
+ETC_DIR="/opt/v2raytge"
 CFG="$ETC_DIR/config.env"
 . "$ETC_DIR/tge-lib.sh"
 need_root

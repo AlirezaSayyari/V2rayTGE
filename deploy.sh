@@ -183,11 +183,13 @@ install_files(){
 
   mkdir -p /opt/tge/bin
   mkdir -p /usr/local/sbin
+  mkdir -p /opt/v2raytge
 
   # Download full set
   curl -fsSL "$REPO_RAW/tge/bin/tge"        -o /opt/tge/bin/tge
   curl -fsSL "$REPO_RAW/tge/bin/tge-config" -o /opt/tge/bin/tge-config
   curl -fsSL "$REPO_RAW/tge/bin/tge-apply"  -o /opt/tge/bin/tge-apply
+  curl -fsSL "$REPO_RAW/tge/bin/tge-lib.sh" -o /opt/tge/bin/tge-lib.sh
 
   chmod +x /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply
 
@@ -195,11 +197,13 @@ install_files(){
   install -m 0755 /opt/tge/bin/tge        /usr/local/bin/tge
   install -m 0755 /opt/tge/bin/tge-config /usr/local/sbin/tge-config
   install -m 0755 /opt/tge/bin/tge-apply  /usr/local/sbin/tge-apply
+  install -m 0644 /opt/tge/bin/tge-lib.sh /opt/v2raytge/tge-lib.sh
 
   log "Installed:"
   log "  /usr/local/bin/tge"
   log "  /usr/local/sbin/tge-config"
   log "  /usr/local/sbin/tge-apply"
+  log "  /opt/v2raytge/tge-lib.sh"
 }
 
 post_notes(){
