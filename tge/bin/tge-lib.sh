@@ -53,6 +53,17 @@ print("OK")
 PY
 }
 
+cidr_network(){
+  python3 - "$1" <<'PY'
+import ipaddress,sys
+try:
+  print(ipaddress.ip_network(sys.argv[1], strict=False))
+except Exception:
+  print("ERROR: invalid CIDR:", sys.argv[1])
+  sys.exit(1)
+PY
+}
+
 validate_int_range(){
   local v="$1" min="$2" max="$3"
   [[ "$v" =~ ^[0-9]+$ ]] || { echo "ERROR: not integer: $v"; exit 1; }

@@ -30,6 +30,16 @@ V2RAY_TABLE_ID="${V2RAY_TABLE_ID:-100}"
 MSS_CLAMP="${MSS_CLAMP:-1436}"
 GRE_MTU="${GRE_MTU:-1476}"
 
+# Derive GRE subnet from configured tunnel CIDR (e.g. 10.255.255.6/30 -> 10.255.255.4/30)
+if [[ -n "${GRE_TUN_IP:-}" ]]; then
+  GRE_SUBNET="$(cidr_network "$GRE_TUN_IP")"
+else
+  GRE_SUBNET="10.255.255.0/30"
+  log "WARN: GRE_TUN_IP missing; fallback GRE_SUBNET=$GRE_SUBNET"
+fi
+GRE_SUBNET_RE="${GRE_SUBNET//./\\.}"
+GRE_SUBNET_RE="${GRE_SUBNET_RE//\//\\/}"
+
 # 0) Quick wait: avoid boot flaps; but never hard-fail (no start-limit storms)
 for _ in $(seq 1 30); do
   ip link show "$GRE_IF" >/dev/null 2>&1 || { sleep 1; continue; }
@@ -73,10 +83,15 @@ fi
 ensure_rule_pref 100 "iif ${GRE_IF} .*lookup ${V2RAY_TABLE}" \
   ip rule add pref 100 iif "$GRE_IF" lookup "$V2RAY_TABLE"
 
-# Optional stability helper for GRE subnet in main (ONLY ensure if missing)
-# If you want to make this dynamic later, you can derive it from GRE_TUN_IP.
-ensure_rule_pref 101 "to 10\.255\.255\.0/30 .*lookup main" \
-  ip rule add pref 101 to 10.255.255.0/30 lookup main
+rule101_line="$(ip -o rule show 2>/dev/null | awk '$1=="101:"{print; exit}')"
+if [[ -n "$rule101_line" ]] && ! echo "$rule101_line" | grep -qE "to ${GRE_SUBNET_RE} .*lookup main"; then
+  log "INFO: pref 101 exists with different subnet; replacing. line=[$rule101_line]"
+  ip rule del pref 101 || true
+fi
+
+# Stability helper: keep GRE subnet route lookups in main table.
+ensure_rule_pref 101 "to ${GRE_SUBNET_RE} .*lookup main" \
+  ip rule add pref 101 to "$GRE_SUBNET" lookup main
 
 ensure_rule_pref 110 "iif ${TUN_IF} .*lookup ${V2RAY_TABLE}" \
   ip rule add pref 110 iif "$TUN_IF" lookup "$V2RAY_TABLE"

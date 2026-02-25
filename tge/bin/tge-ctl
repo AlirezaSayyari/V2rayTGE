@@ -20,6 +20,12 @@ load_cfg() {
 
   GRE_IF="${GRE_IF:-gre-egress}"
   TUN_IF="${TUN_IF:-tun0}"
+  if [[ -n "${GRE_TUN_IP:-}" ]]; then
+    GRE_SUBNET="$(cidr_network "$GRE_TUN_IP")"
+  else
+    GRE_SUBNET="10.255.255.0/30"
+  fi
+  GRE_SUBNET_GREP="${GRE_SUBNET//./\\.}"
 }
 
 compose_up() {
@@ -85,7 +91,7 @@ deactivate() {
   # ip rules (only if exactly match existing line)
   safe_ip_rule_del 100 "iif $GRE_IF lookup v2ray"
   safe_ip_rule_del 110 "iif $TUN_IF lookup v2ray"
-  safe_ip_rule_del 101 "to 10.255.255.0/30 lookup main" || true
+  safe_ip_rule_del 101 "to $GRE_SUBNET_GREP lookup main" || true
 
   # Remove iptables rules that belong to us (best-effort)
   if [[ -f "$CFG" ]]; then
