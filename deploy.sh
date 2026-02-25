@@ -170,9 +170,11 @@ ensure_compose(){
 
   if docker_ok && docker compose version >/dev/null 2>&1; then
     log "docker compose plugin installed."
-  else
-    warn "docker compose still not available. (Not fatal for deploy.)"
+    return 0
   fi
+
+  err "docker compose is not available. Cannot continue."
+  return 1
 }
 
 # -----------------------------
@@ -241,14 +243,14 @@ main(){
   log "Installing base dependencies..."
   apt_install ca-certificates curl jq iproute2 iptables lsof >/dev/null
 
-  # Docker may be needed for v2rayA; try to ensure it.
-  if ensure_docker; then
-    ensure_compose || true
-  else
-    warn "Docker is not available. You can install Docker manually then rerun deploy."
-  fi
-
-  # Always install tge CLI
+  # Required order: Docker -> Compose -> deploy/start v2rayA -> finalize TGE install.
+  ensure_docker
+  ensure_compose
+  mkdir -p /opt/v2raytge/docker
+  curl -fsSL "$REPO_RAW/tge/docker/docker-compose.yml" -o /opt/v2raytge/docker/docker-compose.yml
+  sed -i 's/\r$//' /opt/v2raytge/docker/docker-compose.yml
+  cd /opt/v2raytge/docker
+  docker compose up -d
   install_files
 
   start_apt_background_services
