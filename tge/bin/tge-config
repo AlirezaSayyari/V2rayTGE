@@ -118,6 +118,7 @@ fi
 # 4.9 ask activate
 read -r -p "Do you want to Activate now? [y/N]: " ans
 if [[ "$ans" =~ ^[Yy]$ ]]; then
-  /usr/local/sbin/tge-apply --activate
+  /usr/local/sbin/tge-ctl --activate
   /usr/local/sbin/tge-health || true
 fi
+
