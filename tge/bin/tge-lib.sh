@@ -17,29 +17,29 @@ iface_ipv4(){
 }
 
 validate_ipv4(){
-  python3 - <<PY
+  python3 - "$1" <<'PY'
 import ipaddress,sys
 try:
   ipaddress.IPv4Address(sys.argv[1])
-except Exception as e:
+except Exception:
   print("ERROR: invalid IPv4:", sys.argv[1])
   sys.exit(1)
-PY "$1"
+PY
 }
 
 validate_cidr(){
-  python3 - <<PY
+  python3 - "$1" <<'PY'
 import ipaddress,sys
 try:
   ipaddress.ip_network(sys.argv[1], strict=False)
 except Exception:
   print("ERROR: invalid CIDR:", sys.argv[1])
   sys.exit(1)
-PY "$1"
+PY
 }
 
 validate_no_overlap(){
-  python3 - <<PY
+  python3 - "$@" <<'PY'
 import ipaddress,sys
 nets=[]
 for s in sys.argv[1:]:
@@ -50,7 +50,7 @@ for s in sys.argv[1:]:
       sys.exit(1)
   nets.append(n)
 print("OK")
-PY "$@"
+PY
 }
 
 validate_int_range(){
