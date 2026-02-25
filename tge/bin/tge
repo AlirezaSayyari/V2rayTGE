@@ -26,30 +26,33 @@ menu() {
 help_intro() {
   clear
   cat <<'EOF'
-V2rayTGE چیست؟
-- یک Egress Gateway امن و Production-safe برای خروج ترافیک LAN به اینترنت از طریق v2rayA (tun0).
-- مسیر: LAN -> Edge Device (Forti/Router/...) -> GRE -> EgressGW -> policy routing (table v2ray) -> tun0 -> Internet
+What is V2rayTGE?
+- A production-safe egress gateway that forwards LAN traffic to the Internet through v2rayA (tun0).
+- Traffic path: LAN -> Edge Device (Forti/Router/...) -> GRE -> EgressGW -> policy routing (table v2ray) -> tun0 -> Internet
 
-ویژگی‌ها
-- بدون flush iptables / ip rules
-- بدون تغییر default route سیستم
-- idempotent (هر بار اجرا شود آسیبی نمی‌زند)
-- self-heal با systemd: بعد reboot، بعد docker restart، بعد network restart
+Key behavior
+- No iptables/ip rule flush
+- No host default-route change
+- Idempotent (safe to run repeatedly)
+- Self-heal via systemd after reboot, docker restart, or network restart
 
-پیش‌نیازها
+Install flow (current)
+- deploy.sh ensures Docker and Docker Compose are available.
+- It deploys and starts v2rayA from /opt/v2raytge/docker/docker-compose.yml.
+- Then it completes TGE CLI installation.
+
+Prerequisites
 - Ubuntu Server
-- Docker + v2rayA با network=host (tun0 ساخته می‌شود)
-- یک GRE tunnel از سمت Edge device به این سرور
-- روی Edge device باید PBR/route طوری باشد که LAN به GRE فرستاده شود
+- GRE tunnel from edge device to this server
+- Edge device PBR/static routes that send LAN CIDRs over GRE
 
-GUI v2rayA
-- بعد از نصب/اجرای docker compose، GUI روی پورت 2017 در دسترس است:
-  http://<EgressGW-IP>:2017
-- داخل v2rayA یک outbound config (VLESS/VMess/...) تنظیم کنید و mode را فعال کنید تا tun0 آماده شود.
+v2rayA GUI
+- Default GUI: http://<EgressGW-IP>:2017
+- In v2rayA, configure an outbound (VLESS/VMess/...) and enable TUN mode so tun0 is ready.
 
-نکته MTU/MSS (خیلی مهم)
-- ping ممکن است کار کند ولی HTTPS (TLS) گیر کند => PMTU blackhole
-- ما MSS clamp را روی مسیر GRE->tun0 اعمال می‌کنیم (مثلاً 1436 برای GRE MTU=1476)
+MTU/MSS note (important)
+- If ping works but HTTPS/TLS stalls, you likely have PMTU blackhole.
+- Apply MSS clamp on GRE -> tun0 path (for example, 1436 when GRE MTU is 1476).
 
 EOF
   echo
