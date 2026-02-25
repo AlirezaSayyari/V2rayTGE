@@ -192,22 +192,34 @@ install_files(){
   curl -fsSL "$REPO_RAW/tge/bin/tge-config" -o /opt/tge/bin/tge-config
   curl -fsSL "$REPO_RAW/tge/bin/tge-apply"  -o /opt/tge/bin/tge-apply
   curl -fsSL "$REPO_RAW/tge/bin/tge-lib.sh" -o /opt/tge/bin/tge-lib.sh
+  curl -fsSL "$REPO_RAW/tge/bin/tge-ctl"        -o /opt/tge/bin/tge-ctl
+  curl -fsSL "$REPO_RAW/tge/bin/tge-gre-ensure" -o /opt/tge/bin/tge-gre-ensure
+  curl -fsSL "$REPO_RAW/tge/bin/tge-health"     -o /opt/tge/bin/tge-health
+  curl -fsSL "$REPO_RAW/tge/bin/tge-logs"       -o /opt/tge/bin/tge-logs
 
   # Normalize line endings defensively in case files were committed with CRLF.
-  sed -i 's/\r$//' /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-lib.sh
+  sed -i 's/\r$//' /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-lib.sh /opt/tge/bin/tge-ctl /opt/tge/bin/tge-gre-ensure /opt/tge/bin/tge-health /opt/tge/bin/tge-logs
 
-  chmod +x /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply
+  chmod +x /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply /opt/tge/bin/tge-ctl /opt/tge/bin/tge-gre-ensure /opt/tge/bin/tge-health /opt/tge/bin/tge-logs
 
   # Install to standard locations
   install -m 0755 /opt/tge/bin/tge        /usr/local/bin/tge
   install -m 0755 /opt/tge/bin/tge-config /usr/local/sbin/tge-config
   install -m 0755 /opt/tge/bin/tge-apply  /usr/local/sbin/tge-apply
+  install -m 0755 /opt/tge/bin/tge-ctl        /usr/local/sbin/tge-ctl
+  install -m 0755 /opt/tge/bin/tge-gre-ensure /usr/local/sbin/tge-gre-ensure
+  install -m 0755 /opt/tge/bin/tge-health     /usr/local/sbin/tge-health
+  install -m 0755 /opt/tge/bin/tge-logs       /usr/local/sbin/tge-logs
   install -m 0644 /opt/tge/bin/tge-lib.sh /opt/v2raytge/tge-lib.sh
 
   log "Installed:"
   log "  /usr/local/bin/tge"
   log "  /usr/local/sbin/tge-config"
   log "  /usr/local/sbin/tge-apply"
+  log "  /usr/local/sbin/tge-ctl"
+  log "  /usr/local/sbin/tge-gre-ensure"
+  log "  /usr/local/sbin/tge-health"
+  log "  /usr/local/sbin/tge-logs"
   log "  /opt/v2raytge/tge-lib.sh"
 }
 
