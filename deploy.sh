@@ -181,17 +181,25 @@ ensure_compose(){
 install_files(){
   log "Installing V2rayTGE files..."
 
-  mkdir -p "$INSTALL_DIR/bin"
+  mkdir -p /opt/tge/bin
+  mkdir -p /usr/local/sbin
 
-  curl -fsSL "$REPO_RAW/tge/bin/tge" -o "$INSTALL_DIR/bin/tge"
-  curl -fsSL "$REPO_RAW/tge/bin/tge-apply" -o "$INSTALL_DIR/bin/tge-apply"
-  curl -fsSL "$REPO_RAW/tge/bin/tge-config" -o "$INSTALL_DIR/bin/tge-config" || true
+  # Download full set
+  curl -fsSL "$REPO_RAW/tge/bin/tge"        -o /opt/tge/bin/tge
+  curl -fsSL "$REPO_RAW/tge/bin/tge-config" -o /opt/tge/bin/tge-config
+  curl -fsSL "$REPO_RAW/tge/bin/tge-apply"  -o /opt/tge/bin/tge-apply
 
-  chmod +x "$INSTALL_DIR/bin/"*
+  chmod +x /opt/tge/bin/tge /opt/tge/bin/tge-config /opt/tge/bin/tge-apply
 
-  ln -sf "$INSTALL_DIR/bin/tge" "$BIN_DIR/tge"
+  # Install to standard locations
+  install -m 0755 /opt/tge/bin/tge        /usr/local/bin/tge
+  install -m 0755 /opt/tge/bin/tge-config /usr/local/sbin/tge-config
+  install -m 0755 /opt/tge/bin/tge-apply  /usr/local/sbin/tge-apply
 
-  log "Installed: $BIN_DIR/tge"
+  log "Installed:"
+  log "  /usr/local/bin/tge"
+  log "  /usr/local/sbin/tge-config"
+  log "  /usr/local/sbin/tge-apply"
 }
 
 post_notes(){
